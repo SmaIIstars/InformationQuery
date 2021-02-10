@@ -51,7 +51,7 @@ def split_big_file(size, path):
                     continue
                 items = tmp.split("----")
                 if len(items[0]) < 5 or len(items) < 2:
-                    print('error lineqq_path 2：' + str(tmp))
+                    print('error line 2：' + str(tmp))
                     continue
                 try:
                     m = int(int(items[0]) % size)
@@ -80,25 +80,14 @@ def find_offsets(thread_size, file_path):
     with open(file_path, 'rb') as f:
         for piece_number in range(1, thread_size):
             f.seek(piece_number * piece_size)
-            # 向后寻找
             for offset in range(0, 27):
                 if f.read(1) == b'\n':
-                    # print(f.tell())
                     list_start_piece_offset.append(f.tell())
-            # # 向前找
-            # for offset in range(0,27):
-            #     f.seek(-2,1)
-            #     if f.read(1)==b'\n':
-            #         print(f.tell())
-            #         List_StartPiece_Offset.append(f.tell())
         f.close()
 
     # The end offset
     list_start_piece_offset.append(file_size)
     return list_start_piece_offset
-
-
-counter_limit = 30
 
 
 def create_table_thread(start_table, end_table):
@@ -145,26 +134,29 @@ def insert_thread(start_piece, end_piece):
         commit = 0
         counter = 0
         items = open_piece_file(i)
+        sql = "insert into qq_{} (qq, phone) values".format(i)
+        
         for item in items:
             item = item.replace('\n', '').replace('\r', '').replace('\r\n', '')
             [qq, phone] = item.split('----')
-            sql = "insert into qq_{} (qq, phone) values ({}, {});".format(i, qq, phone)
+            sql += " ({}, {}),".format(qq, phone)
             counter += 1
-            try:
-                cursor.execute(sql)
-            except BaseException as e:
-                print('execute error: {}'.format(e))
-                db.rollback()
-            piece_end_time = int(time.time())
-            if piece_end_time - piece_start_time >= piece_time_limit:
-                print('{} piece {} commit: {} items'.format(i, commit, counter))
+            if counter >= 5000:
                 try:
-                    db.commit()
+                    cursor.execute(sql)
                 except BaseException as e:
-                    print('commit error: {}'.format(e))
-                commit += 1
-                counter = 0
-                piece_start_time = int(time.time())
+                    print('execute error: {}'.format(e))
+                    db.rollback()
+                piece_end_time = int(time.time())
+                if piece_end_time - piece_start_time >= piece_time_limit:
+                    print('{} piece {} commit: {} items'.format(i, commit, counter))
+                    try:
+                        db.commit()
+                    except BaseException as e:
+                        print('commit error: {}'.format(e))
+                    commit += 1
+                    counter = 0
+                    piece_start_time = int(time.time())
 
     try:
         db.commit()
